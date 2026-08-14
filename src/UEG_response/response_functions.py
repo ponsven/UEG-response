@@ -1,7 +1,56 @@
 import numpy as np
 from .fermi_dirac import compute_chemical_potential
-from .I_functions import _I_2_inner
+from .I_functions import _I_1_inner, _I_2_inner
 from .utils import _norm, _cos_angle
+
+def ideal_linear_response(omega, k, m, hbar, n, beta, ms=2,
+                          reltol=1e-6, abstol=1e-8, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
+  # Setup for array operations
+  omega  = np.atleast_1d(np.array(omega))
+  k      = np.atleast_1d(np.array(k))
+  omega, k = np.broadcast_arrays(omega, k)
+
+  # Test inputs.
+  if (np.any(k <= 0.0)):
+      raise ValueError(f'k must be posetive')
+
+  if (np.iscomplexobj(omega)):
+      raise ValueError(f"Complex frequncies are not suported.")
+
+  if (n <= 0.0):
+    raise ValueError(f"Provided density (%g) must be posetive."%(n))
+
+  if (beta <= 0.0):
+    raise ValueError(f"Provided inverse temperature (%g) must be posetive."%(beta))
+
+  if (m <= 0.0):
+    raise ValueError(f"Provided mass (%g) must be posetive."%(m))
+
+  if (hbar <= 0.0):
+    raise ValueError(f"Provided hbar (%g) must be posetive."%(hbar))
+
+  # Compuet chemical potential.
+  eta = beta * compute_chemical_potential(n, hbar, m, beta, reltol=reltol, ms=ms)
+
+  # Compute relevant scales
+  qF = (3*np.pi**2*n)**(1/3)
+  EF = hbar**2 * qF**2 / (2*m)
+  inv_theta = beta * EF
+
+  # Compute the ideal response in terms of I1-integrals.
+  linear_chi_0 = np.zeros(shape=omega.shape, dtype=complex)
+
+  # First term
+  y = np.abs(k)/qF
+  z = hbar*(omega)/EF
+  linear_chi_0 -= _I_1_inner(y, z, 1,  qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)
+
+  # Second term
+  y = np.abs(-k)/qF
+  z = hbar*(-omega)/EF
+  linear_chi_0 -= _I_1_inner(y, z, -1, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)
+  
+  return linear_chi_0
 
 # Compute quadratic response susing the direct method.
 def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output):
@@ -58,6 +107,34 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
   return quadratic_chi_0
 
 
+def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1e-6, abstol=1e-8, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
+  """
+    Computes the ideal quadratic response function for equal first and second argument. Units per energy**2 per volume.
+    Arguments:
+      omega -- Angular frequencies for evaluation, shape (n, ) or ()
+      k     -- Wave number for evaluation, shape (n, ) or ()
+      m     -- Mass of particle
+      hbar  -- Reduced Plank's constant.
+      n      -- Density, for the computation of f1D if not given.
+      beta   -- Inverse temperature in energy units, for the computation of f1D if not given.
+    Optional:
+      ms           -- Spin multiplicity of particle, defult 2.
+      reltol       -- Relative tolerance for solution.
+      abstol       -- Absolute tolerance for solution.
+      eta_log      -- eta_log for the linear response computation, see 'ideal_linear_response'. 
+      tol_upper    -- tol_upper for the linear response computation, see 'ideal_linear_response'. 
+      points_n     -- points_n for the linear response computation, see 'ideal_linear_response'. 
+      force_output -- If true, results will be outputted even if convergence is not garanteed.
+    Output:
+      quadratic_chi_0 -- ideal quadratic reponse function, shape (n, ) or ()
+  """
+  chi_0        = ideal_linear_response( omega,    k, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
+  chi_0_double = ideal_linear_response(2*omega, 2*k, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
+
+  quadratic_chi_0 = 2*m/(hbar**2*k**2) * (chi_0_double - chi_0)
+  return quadratic_chi_0
+
+
 def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
                              m, hbar, n, beta, method='direct', ms=2,
                              reltol=1e-6, abstol=1e-8, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8,
@@ -87,7 +164,7 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
       points_n  -- Points which helps numerical integration highliting points where FD is steap.
                    Points are given by:  [(mu/EF + n*theta) for n in range(-points_n, points_n+1)]
                    Points are also generated around the log- and sqrt-poles.
-      force_output -- If true, results will be outputted even if gonvergence is not garanteed.
+      force_output -- If true, results will be outputted even if convergence is not garanteed.
     Output:
       quadratic_chi_0 -- ideal quadratic reponse function, shape (n, ) or ()
       eta             -- Chemical potential of uniform system in units of kB T.
@@ -182,7 +259,7 @@ def quadratic_response(omega1, k1, omega2, k2, csTheta,
     Optional: Either f1D or n and beta nust be given. If not n is given, qF must be given.
       G_linear        -- Local field correction, dimentionless. Callabale with (omega, k)
       theta_quadratic -- Quadratic local field corection, units energy * volume**2. Callabale with (omega1, k1, omega2, k2, costheta)
-      s         -- Spin of particle.
+      ms        -- Spin multiplicity of particle, defult 2.
       reltol    -- Relative tolerance for solution.
       abstol    -- Absolute tolerance for solution.
       eta_pol   -- eta for principla value evaluation, see 'principal_value_integration_f_over_x'
@@ -225,19 +302,15 @@ def quadratic_response(omega1, k1, omega2, k2, csTheta,
 
   # Compute ideal response
   if (np.all(k1 == k2) and np.all(omega1 == omega2) and np.all(csTheta == 1.0) and use_diag ):
-    raise ValueError("TODO: Implement")
-    # quadratic_chi_0 = ideal_diagonal_quadratic_response(omega1, k1, m, hbar, e, eps0, f1D=f1D, qF=qF, n=n, beta=beta, s=s, reltol=reltol, abstol=abstol, eta=eta_pol, omega_high=omega_high)
-    # chi_0_1, _ = compute_ideal_response(omega1, k1, m, hbar, e, eps0, f1D=f1D, qF=qF, n=n, s=s, reltol=reltol, abstol=abstol, eta=eta_pol, omega_high=omega_high)
-    # chi_0_2 = chi_0_1
+    quadratic_chi_0 = ideal_diagonal_quadratic_response(omega1, k1, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
   else:
     quadratic_chi_0 = ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
                                               m, hbar, n, beta, ms=ms,
                                               reltol=reltol, abstol=abstol, eta_pol=eta_pol, eta_sqrt=eta_sqrt, eta_log=eta_log, tol_upper=tol_upper,
                                               dx=dx, points_n=points_n, force_output=force_output)
-    raise ValueError("Implement")
-    # chi_0_1, f1D = compute_ideal_response(omega1, k1, m, hbar, e, eps0, f1D=f1D, qF=qF, n=n, beta=beta, s=s, reltol=reltol, abstol=abstol, eta=eta_pol, omega_high=omega_high)
-    # chi_0_2, _ = compute_ideal_response(omega2, k2, m, hbar, e, eps0, f1D=f1D, qF=qF, n=n, s=s, reltol=reltol, abstol=abstol, eta=eta_pol, omega_high=omega_high)
-  # chi_0_12, _ = compute_ideal_response(omega1+omega2, _norm(k1_vec+k2_vec), m, hbar, e, eps0, f1D=f1D, qF=qF, n=n, s=s, reltol=reltol, abstol=abstol, eta=eta_pol, omega_high=omega_high)
+  chi_0_1 = ideal_linear_response(omega1, k1, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
+  chi_0_2 = ideal_linear_response(omega2, k2, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
+  chi_0_12 = ideal_linear_response(omega1+omega2, _norm(k1_vec+k2_vec),  m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
 
   # Dielectric constants
   if (ideal):
@@ -246,16 +319,16 @@ def quadratic_response(omega1, k1, omega2, k2, csTheta,
     eps_12 = 1.0
   else:
     # Compute theta functions
-    theta_1  = e**2/(eps0*k1**2)      * (1 - G_linear(omega1, k1))
-    theta_2  = e**2/(eps0*k2**2)      * (1 - G_linear(omega2, k2))
-    theta_12 = e**2/(eps0*_norm(k1_vec+k2_vec)**2) * (1 - G_linear(omega1+omega2, _norm(k1_vec+k2_vec)))
+    theta_1  = e**2/(eps0*k1**2)      * (1.0 - G_linear(omega1, k1))
+    theta_2  = e**2/(eps0*k2**2)      * (1.0 - G_linear(omega2, k2))
+    theta_12 = e**2/(eps0*_norm(k1_vec+k2_vec)**2) * (1.0 - G_linear(omega1+omega2, _norm(k1_vec+k2_vec)))
 
-    eps_1  = 1 - theta_1  * chi_0_1
-    eps_2  = 1 - theta_2  * chi_0_2
-    eps_12 = 1 - theta_12 * chi_0_12
+    eps_1  = 1.0 - theta_1  * chi_0_1
+    eps_2  = 1.0 - theta_2  * chi_0_2
+    eps_12 = 1.0 - theta_12 * chi_0_12
 
   # Quadratic LFC
   quadratic_theta = theta_quadratic(omega1, k1, omega2, k2, csTheta)
 
   quadratic_chi = ( quadratic_chi_0 + chi_0_12*chi_0_1*chi_0_2*quadratic_theta ) / (eps_1*eps_2*eps_12)
-  return quadratic_chi, f1D, eta, inv_theta
+  return quadratic_chi
