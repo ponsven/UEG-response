@@ -1,0 +1,5 @@
+.venv
+dist
+dev
+src/UEG_response.egg-info
+src/UEG_response/__pycache__
