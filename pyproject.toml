@@ -12,7 +12,10 @@ description = "Implementations of approximations to the linear and nonlinear res
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-  'numpay',
+  'numpy',
+  'scipy',
+  'numba',
+  'fdint',
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
