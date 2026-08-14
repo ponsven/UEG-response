@@ -49,7 +49,7 @@ def ideal_linear_response(omega, k, m, hbar, n, beta, ms=2,
   y = np.abs(-k)/qF
   z = hbar*(-omega)/EF
   linear_chi_0 -= _I_1_inner(y, z, -1, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)
-  
+
   return linear_chi_0
 
 # Compute quadratic response susing the direct method.
@@ -121,9 +121,9 @@ def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1
       ms           -- Spin multiplicity of particle, defult 2.
       reltol       -- Relative tolerance for solution.
       abstol       -- Absolute tolerance for solution.
-      eta_log      -- eta_log for the linear response computation, see 'ideal_linear_response'. 
-      tol_upper    -- tol_upper for the linear response computation, see 'ideal_linear_response'. 
-      points_n     -- points_n for the linear response computation, see 'ideal_linear_response'. 
+      eta_log      -- eta_log for the linear response computation, see 'ideal_linear_response'.
+      tol_upper    -- tol_upper for the linear response computation, see 'ideal_linear_response'.
+      points_n     -- points_n for the linear response computation, see 'ideal_linear_response'.
       force_output -- If true, results will be outputted even if convergence is not garanteed.
     Output:
       quadratic_chi_0 -- ideal quadratic reponse function, shape (n, ) or ()
@@ -181,9 +181,9 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
 
   # Test the input.
   if (np.any(k1 < 0.0)):
-      raise ValueError(f'k1 must be posetive or zero')
+    raise ValueError(f'k1 must be posetive or zero')
   if (np.any(k2 < 0.0)):
-      raise ValueError(f'k2 must be posetive or zero')
+    raise ValueError(f'k2 must be posetive or zero')
 
   if (np.iscomplexobj(omega1) or np.iscomplexobj(omega2)):
     raise ValueError(f"Complex frequncies are not suported.")
@@ -239,7 +239,7 @@ def quadratic_response(omega1, k1, omega2, k2, csTheta,
                        m, hbar, e, eps0, n, beta,
                        G_linear=no_G_linear, theta_quadratic=no_theta_quadratic, ms=2,
                        reltol=1e-6, abstol=1e-8, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8,
-                       omega_high=np.inf, dx=1e-4, points_n=3,
+                       dx=1e-4, points_n=3,
                        ideal=False, use_diag=True, force_output=False):
   """
     Computes the quadratic response function. Units per energy**2 per volume. It defults to a RPA description if

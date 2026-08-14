@@ -17,6 +17,9 @@ def jit_integrand_function(integrand_function):
 def _norm(v):
   return np.sqrt( np.sum(v*v, axis=1) )
 
+def _norm_single(v):
+  return np.sqrt( np.sum(v*v) )
+
 def _cos_angle(v1, v2):
   norm1 = _norm(v1)
   norm2 = _norm(v2)
