@@ -1,5 +1,6 @@
 import numpy as np
 import numba
+from numba import njit
 from numba import cfunc,carray
 from numba.types import intc, CPointer, float64
 from scipy import LowLevelCallable
@@ -35,3 +36,29 @@ def _cos_angle(v1, v2):
   tmp[tmp >=  1.0] =  1.0
   tmp[tmp <= -1.0] = -1.0
   return tmp
+
+@njit
+def filter_close_values(x, d):
+  sorted_x = np.sort(x)
+  res = np.empty(len(x), dtype=numba.boolean)
+  res[0] = True
+  i = 0
+  j = 1
+  while j < len(x):
+    if (sorted_x[j] - sorted_x[i]) <= d:
+        res[j] = False
+    else:
+        res[j] = True
+        i = j
+    j += 1
+
+  return sorted_x[res]
+
+def _get_points_I(low, high, points_all):
+    # Select points in the intervall in question.
+    idx = np.logical_and(points_all > low, points_all < high)
+    points = points_all[idx]
+    if (len(points) == 0):
+       return None
+    else:
+       return points

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.integrate import quad
 from numba import njit
 import warnings
-from .utils import jit_integrand_function
+from .utils import jit_integrand_function, _get_points_I
 from .principal_value_integration import principal_value_integration_f_over_x
 from .fermi_dirac import f1D_fermi_dirac, df1D_fermi_dirac
 
@@ -65,15 +65,6 @@ def _generate_all_points_I(eta, inv_theta, points_n):
     points_tmp = np.array( [(eta + n)/inv_theta for n in range(-points_n, points_n+1)] )
     points_all = np.sqrt(points_tmp[points_tmp >= 0.0])
     return points_all
-
-def _get_points_I(low, high, points_all):
-    # Select points in the intervall in question.
-    idx = np.logical_and(points_all > low, points_all < high)
-    points = points_all[idx]
-    if (len(points) == 0):
-       return None
-    else:
-       return points
 
 def _I_1_inner_single(y, z, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output):
   # Additional special points of the FD-function
@@ -604,3 +595,100 @@ def _I_2_inner(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, eta, inv_theta, eta_
         else: # The general case
             tmp[i] = _I_2_inner_full(y1_, z1_, sng1, y2_, z2_, sng2, csTheta_, qF, EF, eta, inv_theta, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)
     return tmp
+
+@njit
+def _I_2_CV_real_single(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, ms):
+    if (csTheta > -1.0 and csTheta < 1.0):
+        snTheta2 = 1 - csTheta**2
+        pre_Cenni = ms * (0.5)**2 / ((2*np.pi)**2 * y1 * y2 * snTheta2) * qF**3 / EF**2
+        A  = (-z1 - y1**2)/(2*y1)
+        B  = (-z2 - y2**2)/(2*y2)
+        G2 = A**2 - 2*A*B*csTheta + B**2
+        kF = 1.0
+
+
+        phi_real = _phi_2_corrected_real_single(kF, A, sng1, B, sng2, csTheta)
+
+        I_Cenni_real = pre_Cenni * ( (A*csTheta-B)*np.log(np.abs((A-kF)/(A+kF))) 
+                                + (B*csTheta-A)*np.log(np.abs((B-kF)/(B+kF)))
+                                - (G2 - kF**2*snTheta2)/kF * phi_real )
+    elif (csTheta >= 1.0):
+        A  = (-z1 - y1**2)/(2*y1)
+        B  = (-z2 - y2**2)/(2*y2)
+        G2 = A**2 - 2*A*B*1.0 + B**2
+        snTheta2 = 0.0
+        kF = 1.0
+
+        pre_Cenni = - ms/(2*(4*np.pi)**2 * y1*y2) * qF**3/EF**2 
+        if (np.abs(A-B) < 1e-10):
+            I_Cenni_real = pre_Cenni * 2 * ( 2 + A*np.log(np.abs((A-1)/(A+1))) )  
+        else:
+            I_Cenni_real = pre_Cenni * (2 + A*np.log(np.abs((A-1)/(A+1))) 
+                                        + B*np.log(np.abs((B-1)/(B+1))) 
+                                        + (A*B - 1)/np.abs(A-B) * np.log(np.abs( (A*B - 1 + np.abs(A-B)) / (A*B - 1 - np.abs(A-B)) )) )
+    else:
+        A  = (-z1 - y1**2)/(2*y1)
+        B  = (-z2 - y2**2)/(2*y2)
+        G2 = A**2 + 2*A*B*1.0 + B**2
+        snTheta2 = 0.0
+        kF = 1.0
+
+        pre_Cenni = ms/(2*(4*np.pi)**2 * y1*y2) * qF**3/EF**2 
+        if (np.abs(A+B) < 1e-10):
+            I_Cenni_real = pre_Cenni * 2 * ( 2 + A*np.log(np.abs((A-1)/(A+1))) )  
+        else:
+            I_Cenni_real = pre_Cenni * (2 + A*np.log(np.abs((A-1)/(A+1))) 
+                                          + B*np.log(np.abs((B-1)/(B+1))) 
+                                          + (A*B + 1)/np.abs(A+B) * np.log(np.abs( (A*B + 1 + np.abs(A+B)) / (A*B + 1 - np.abs(A+B)) )) )
+    
+    return I_Cenni_real 
+
+@njit
+def _I_2_CV_imag_single(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, ms):
+    if (csTheta > -1.0 and csTheta < 1.0):
+        snTheta2 = 1 - csTheta**2
+        pre_Cenni = ms * (0.5)**2 / ((2*np.pi)**2 * y1 * y2 * snTheta2) * qF**3 / EF**2
+        A  = (-z1 - y1**2)/(2*y1)
+        B  = (-z2 - y2**2)/(2*y2)
+        G2 = A**2 - 2*A*B*csTheta + B**2
+        kF = 1.0
+
+        phi_imag = _phi_2_corrected_imag_single(kF, A, sng1, B, sng2, csTheta)
+
+        I_Cenni_imag = pre_Cenni * ( (A*csTheta-B)*(-sng1)*np.pi*(kF > np.abs(A))
+                                + (B*csTheta-A)*(-sng2)*np.pi*(kF > np.abs(B))
+                                - (G2 - kF**2*snTheta2)/kF * phi_imag )  
+    elif (csTheta >= 1.0):
+        A  = (-z1 - y1**2)/(2*y1)
+        B  = (-z2 - y2**2)/(2*y2)
+        G2 = A**2 - 2*A*B*1.0 + B**2
+        snTheta2 = 0.0
+        kF = 1.0
+
+        pre_Cenni = - ms/(2*(4*np.pi)**2 * y1*y2) * qF**3/EF**2 
+        
+        if (np.abs(A-B) < 1e-10):
+            I_Cenni_imag = pre_Cenni * (  A*(-sng1)*np.pi*(kF > np.abs(A)) 
+                                        + B*(-sng2)*np.pi*(kF > np.abs(B)) )
+        else:
+            I_Cenni_imag = pre_Cenni * (  A*(-sng1)*np.pi*(kF > np.abs(A)) 
+                                        + B*(-sng2)*np.pi*(kF > np.abs(B)) 
+                                        + (A*B-1)/np.abs(A-B) * _phi_2_corrected_imag_wo_pre_single(1.0, A, sng1, B, sng2, 1.0))
+    else:
+        A  = (-z1 - y1**2)/(2*y1)
+        B  = (-z2 - y2**2)/(2*y2)
+        G2 = A**2 + 2*A*B*1.0 + B**2
+        snTheta2 = 0.0
+        kF = 1.0
+
+        pre_Cenni = ms/(2*(4*np.pi)**2 * y1*y2) * qF**3/EF**2 
+        
+        if (np.abs(A+B) < 1e-10):
+            I_Cenni_imag = pre_Cenni * (  A*(-sng1)*np.pi*(kF > np.abs(A)) 
+                                        + B*(-sng2)*np.pi*(kF > np.abs(B)) )
+        else:
+            I_Cenni_imag = pre_Cenni * (  A*(-sng1)*np.pi*(kF > np.abs(A)) 
+                                        + B*(-sng2)*np.pi*(kF > np.abs(B)) 
+                                        + (A*B+1)/np.abs(A+B) * _phi_2_corrected_imag_wo_pre_single(1.0, A, sng1, B, sng2, -1.0))
+    
+    return I_Cenni_imag

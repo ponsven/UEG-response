@@ -2,6 +2,7 @@ import numpy as np
 from .fermi_dirac import compute_chemical_potential
 from .I_functions import _I_1_inner, _I_2_inner
 from .utils import _norm, _cos_angle
+from .Maldague_quadratic import _ideal_quadratic_response_Maldague
 
 def ideal_linear_response(omega, k, m, hbar, n, beta, ms=2,
                           reltol=1e-6, abstol=1e-8, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
@@ -137,7 +138,7 @@ def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1
 
 def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
                              m, hbar, n, beta, method='direct', ms=2,
-                             reltol=1e-6, abstol=1e-8, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8,
+                             reltol=1e-6, abstol=1e-8, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8, lower=1e-6,
                              dx=1e-4, points_n=3, force_output=False):
   """
     Computes the ideal quadratic response coefficents. Units per energy**2 per volume.
@@ -160,6 +161,7 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
       eta_sqrt  -- Size of region around sqrt-poles which are approximated analytically.
       eta_log   -- Size of region around log-poles which are approximated analytically.
       tol_upper -- Stop integration when the FD distribution is below this value.
+      lower     -- Lower limit of integration when method='maldague'
       dx        -- Finite difference parameter used for differentiation of Fermi-Dirac integrals.
       points_n  -- Points which helps numerical integration highliting points where FD is steap.
                    Points are given by:  [(mu/EF + n*theta) for n in range(-points_n, points_n+1)]
@@ -223,7 +225,9 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
                                                        eta_pol, eta_sqrt, eta_log,
                                                        reltol, abstol, tol_upper, points_n, ms, dx, force_output)
   elif (method == 'maldague'):
-    raise ValueError("TODO: implement")
+    quadratic_chi_0 = _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta,
+                                                         eta, beta, hbar, m,
+                                                         lower, reltol, abstol, tol_upper, points_n, ms, force_output=force_output)
   else:
     raise ValueError(f"The 'method' (%s) must be one of: 'direct' or 'maldague'."%(method))
 
