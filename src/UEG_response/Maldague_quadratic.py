@@ -190,14 +190,14 @@ def _Maldague_chi_2_0_CV(eta_bar, k1, omega1, k2, omega2, csTheta, beta, hbar, m
 
     return val, points_I
 
-def _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta, eta, beta, hbar, m, lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=True):
+def _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, eta, beta, hbar, m, lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=True):
     # Allocate data
-    res = np.zeros(shape=(len(csTheta), ), dtype=complex)
-    err = np.zeros(shape=(len(csTheta), ), dtype=complex)
+    res = np.zeros(shape=(len(omega1), ), dtype=complex)
+    err = np.zeros(shape=(len(omega1), ), dtype=complex)
 
     # Pre-compute angle computations and vector setup
     k1s, omega1s, sng1s, k2s, omega2s, sng2s, csTheta12s = _setup_computations_Maldague(k1_vec, omega1, k2_vec, omega2) 
-    X = np.zeros(shape=(len(csTheta), 47))
+    X = np.zeros(shape=(len(omega1), 47))
     X[:, 0:42] = np.concatenate( (k1s, omega1s, sng1s, k2s, omega2s, sng2s, csTheta12s), axis=1 )
     X[:, 42] = beta
     X[:, 43] = eta
@@ -213,7 +213,7 @@ def _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta, 
     points_FD = np.array( [(max(0.0, eta) + n) for n in range(-points_n, points_n+1)] ) # Special points from thermal factor.
 
     # Loop over all computations
-    for idx in range(len(csTheta)):
+    for idx in range(len(omega1)):
         # Compute points
         for i in range(6):
             points_I[i, :] = _generate_I_points_Maldague(k1s[idx, i], omega1s[idx, i], k2s[idx, i], omega2s[idx, i], csTheta12s[idx, i], beta, hbar, m)

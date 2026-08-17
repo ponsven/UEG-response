@@ -3,6 +3,7 @@ from .fermi_dirac import compute_chemical_potential
 from .I_functions import _I_1_inner, _I_2_inner
 from .utils import _norm, _cos_angle
 from .Maldague_quadratic import _ideal_quadratic_response_Maldague
+from .zeroth_harmonic import _chi0_k2_0_Maldague, _chi0_k1_0_k2_0_Maldague
 
 def ideal_linear_response(omega, k, m, hbar, n, beta, ms=2,
                           reltol=1e-6, abstol=1e-8, limit=50, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
@@ -137,7 +138,7 @@ def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1
 
 
 def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
-                             m, hbar, n, beta, method='direct', use_parallel=False, ms=2,
+                             m, hbar, n, beta, method='direct', use_parallel=False, direction_k_0='static', ms=2,
                              reltol=1e-6, abstol=1e-8, limit=50, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8, lower=1e-6,
                              dx=1e-4, points_n=3, force_output=False):
   """
@@ -153,8 +154,11 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
       n       -- Density, for the computation of eta and inv_theta if not given.
       beta    -- Inverse temperature in energy units, for the computation of eta and inv_theta if not given.
     Optional: Either eta and inv_theta or n and beta nust be given. If not n is given, qF must be given.
-      method       -- The method used to performe the evaluation. 
-      use_parallel -- Set to 'True' if parallel implementation should be used.
+      method        -- The method used to performe the evaluation. 
+      use_parallel  -- Set to 'True' if parallel implementation should be used.
+      direction_k_0 -- Either 'static' or 'dynamic'. Determines the treatment when ki==0, omega1==0 and omega2==0.
+                       If 'static', ki -> 0 is taken for the static response (defult).
+                       If 'dynamic', omegai -> 0 is taken for the response where ki=0.
       ms        -- Spin multiplicity of particle.
       reltol    -- Relative tolerance for solution.
       abstol    -- Absolute tolerance for solution.
@@ -204,6 +208,9 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
   if (hbar <= 0.0):
     raise ValueError(f"Provided hbar (%g) must be posetive."%(hbar))
 
+  if not (direction_k_0 == 'static' or direction_k_0 == 'dynamic'):
+    raise ValueError(f"'direction_k_0' (%s) must be either 'static' or 'dynamic'."%(direction_k_0))
+
   # Compuet chemical potential.
   eta = beta * compute_chemical_potential(n, hbar, m, beta, reltol=reltol, ms=ms)
 
@@ -221,17 +228,62 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
   k2_vec[:, 0] = k2 * np.sqrt(1.0 - csTheta**2)
   k2_vec[:, 2] = k2 * csTheta
 
-  if (method == 'direct'):
-    quadratic_chi_0 = _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec,
-                                                       hbar, qF, EF, eta, inv_theta,
-                                                       eta_pol, eta_sqrt, eta_log,
-                                                       reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
-  elif (method == 'maldague'):
-    quadratic_chi_0 = _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta,
-                                                         eta, beta, hbar, m,
-                                                         lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=force_output)
-  else:
-    raise ValueError(f"The 'method' (%s) must be one of: 'direct' or 'maldague'."%(method))
+  # Allocate the result
+  quadratic_chi_0 = np.zeros(shape=omega1.shape, dtype=complex)
+
+  # Find special cases that are explcitly treated.
+  idx_static = np.logical_and( (omega1==0.0), (omega2==0.0) )
+  # k1 == 0 and k2 == 0
+  idx0 = np.logical_and( np.logical_and((k1==0.0), (k2==0.0)), idx_static)
+  if (np.any(idx0)):
+    if (direction_k_0 == 'static'):
+      quadratic_chi_0[idx0] = _chi0_k1_0_k2_0_Maldague(eta, beta, hbar, m, lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=force_output)
+    else:
+      quadratic_chi_0[idx0] = 0.0
+
+  # k1 == 0
+  idx1 = np.logical_and( (k1==0.0), idx_static )
+  idx1 = np.logical_and( idx1, np.logical_not(idx0) )
+  if (np.any(idx1)):
+    if (direction_k_0 == 'static'):
+      quadratic_chi_0[idx1] = _chi0_k2_0_Maldague(k2[idx1]/qF, qF, eta, beta, hbar, m, lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=force_output)
+    else:
+      quadratic_chi_0[idx1] = 0.0
+
+  # k2 == 0
+  idx2 = np.logical_and( (k2==0.0), idx_static )
+  idx2 = np.logical_and( idx2, np.logical_not(idx0) )
+  if (np.any(idx2)):
+    if (direction_k_0 == 'static'):
+      quadratic_chi_0[idx2] = _chi0_k2_0_Maldague(k1[idx2]/qF, qF, eta, beta, hbar, m, lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=force_output)
+    else:
+      quadratic_chi_0[idx2] = 0.0
+
+  # k1 + k2 == 0
+  k12 = np.sqrt(np.sum( (k1_vec + k2_vec)**2, axis=1))
+  idx3 = np.logical_and( (k12==0.0), idx_static )
+  idx3 = np.logical_and( idx3, np.logical_not(idx0) )
+  if (np.any(idx3)):
+    if (direction_k_0 == 'static'):
+      # Use Kalman and Gu’s symmetry.
+      quadratic_chi_0[idx3] = _chi0_k2_0_Maldague(k1[idx3]/qF, qF, eta, beta, hbar, m, lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=force_output)
+    else:
+      quadratic_chi_0[idx3] = 0.0
+
+  # General case
+  idx_other = np.logical_not( np.logical_or(np.logical_or(np.logical_or(idx0, idx1), idx2), idx3) )
+  if (np.any(idx_other)):
+    if (method == 'direct'):
+      quadratic_chi_0[idx_other] = _ideal_quadratic_response_direct(omega1[idx_other], k1_vec[idx_other, :], omega2[idx_other], k2_vec[idx_other, :],
+                                                                    hbar, qF, EF, eta, inv_theta,
+                                                                    eta_pol, eta_sqrt, eta_log,
+                                                                    reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
+    elif (method == 'maldague'):
+      quadratic_chi_0[idx_other] = _ideal_quadratic_response_Maldague(k1_vec[idx_other, :], omega1[idx_other], k2_vec[idx_other, :], omega2[idx_other],
+                                                                      eta, beta, hbar, m,
+                                                                      lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=force_output)
+    else:
+      raise ValueError(f"The 'method' (%s) must be one of: 'direct' or 'maldague'."%(method))
 
   return quadratic_chi_0
 
