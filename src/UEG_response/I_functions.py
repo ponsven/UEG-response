@@ -66,7 +66,7 @@ def _generate_all_points_I(eta, inv_theta, points_n):
     points_all = np.sqrt(points_tmp[points_tmp >= 0.0])
     return points_all
 
-def _I_1_inner_single(y, z, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output):
+def _I_1_inner_single(y, z, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output):
   # Additional special points of the FD-function
   points_all = _generate_all_points_I(eta, inv_theta, points_n)
   # Upper bound of integral based on the FD
@@ -105,12 +105,15 @@ def _I_1_inner_single(y, z, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol
     warnings.warn("Invalid ordering of integration bounds occured, attempt reducing the eta_sqrt and eta_log values.", RuntimeWarning)
     return np.nan + 1j*np.nan
 
+  # Scale the absolut error based on pre-factors
+  abstol_scaled = abstol / np.abs(ms * qF**3 / ( EF * (2*np.pi)**2 * 2 * y))
+
   # Perform numerical integration.
   for i_intervall, (low, high) in enumerate(zip(lows, highs)):
     # Real
     quad_output = quad(_real_I_1_integrad, low, high,
                         args=(A,inv_theta,eta), full_output=1,
-                        points=_get_points_I(low,high,points_all), epsabs=abstol/3, epsrel=reltol/3)
+                        points=_get_points_I(low,high,points_all), epsabs=abstol_scaled/2, epsrel=reltol/2, limit=limit)
     if (len(quad_output) > 3):
       message = quad_output[3]
       if not (force_output):
@@ -130,7 +133,7 @@ def _I_1_inner_single(y, z, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol
 
     quad_output = quad(_imag_I_1_integrad, low, high,
                         args=(A,sng,inv_theta,eta), full_output=1,
-                        points=_get_points_I(low,high,points_all), epsabs=abstol/3, epsrel=reltol/3)
+                        points=_get_points_I(low,high,points_all), epsabs=abstol_scaled/2, epsrel=reltol/2, limit=limit)
     if (len(quad_output) > 3):
       message = quad_output[3]
       if not (force_output):
@@ -158,10 +161,10 @@ def _I_1_inner_single(y, z, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol
 
   return res
 
-def _I_1_inner(y, z, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output):
+def _I_1_inner(y, z, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output):
     tmp = np.zeros(shape=y.shape, dtype=complex)
     for i, (y_, z_) in enumerate(zip(y, z)):
-        tmp[i] = _I_1_inner_single(y_, z_, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)
+        tmp[i] = _I_1_inner_single(y_, z_, sng, qF, EF, eta, inv_theta, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output)
     return tmp
 
 ### Quadratic order ###
@@ -268,7 +271,7 @@ def _imag_I_2_integrad(X):
     eta       = X[7]
     return _phi_2_corrected_imag_single(x, A, sng1, B, sng2, csTheta) * _reduced_FD(x, inv_theta, eta)
 
-def _I_2_inner_full(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, eta, inv_theta, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output):
+def _I_2_inner_full(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, eta, inv_theta, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output):
   # Additional special points of the FD-function
   points_all = _generate_all_points_I(eta, inv_theta, points_n)
   # Upper bound of integral based on the FD
@@ -437,12 +440,15 @@ def _I_2_inner_full(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, eta, inv_theta,
     warnings.warn("Invalid ordering of integration bounds occured, attempt reducing the eta_sqrt and eta_log values.", RuntimeWarning)
     return np.nan + 1j*np.nan
 
+  # Scale the absolute error based on pre-factors
+  abstol_scaled = abstol / np.abs(ms * qF**3 / ( EF**2 * (2*np.pi)**2 * 4 * y1 * y2))
+
   # Perform numerical integration.
   for i_intervall, (low, high) in enumerate(zip(lows, highs)):
     # Real
     quad_output = quad(_real_I_2_integrad, low, high,
                         args=(A,sng1,B,sng2,csTheta,inv_theta,eta), full_output=1,
-                        points=_get_points_I(low,high,points_all), epsabs=abstol/6, epsrel=reltol/6)
+                        points=_get_points_I(low,high,points_all), epsabs=abstol_scaled/6, epsrel=reltol/6, limit=limit)
     if (len(quad_output) > 3):
       message = quad_output[3]
       if not (force_output):
@@ -462,7 +468,7 @@ def _I_2_inner_full(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, eta, inv_theta,
 
     quad_output = quad(_imag_I_2_integrad, low, high,
                         args=(A,sng1,B,sng2,csTheta,inv_theta,eta), full_output=1,
-                        points=_get_points_I(low,high,points_all), epsabs=abstol/6, epsrel=reltol/6)
+                        points=_get_points_I(low,high,points_all), epsabs=abstol/6, epsrel=reltol/6, limit=limit)
     if (len(quad_output) > 3):
       message = quad_output[3]
       if not (force_output):
@@ -554,7 +560,7 @@ def _I_2_inner_full(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, eta, inv_theta,
 
   return res
 
-def _I_2_inner_parallel(y1, z1, sng1, y2, z2, sng2, qF, EF, eta, inv_theta, eta_pol, reltol, abstol, ms, dx):
+def _I_2_inner_parallel(y1, z1, sng1, y2, z2, sng2, qF, EF, eta, inv_theta, eta_pol, reltol, abstol, limit, tol_upper, points_n, ms, dx, force_output):
   # Correct eps sign.
   sng1 *= np.sign(y1)
   sng2 *= np.sign(y2)
@@ -563,37 +569,49 @@ def _I_2_inner_parallel(y1, z1, sng1, y2, z2, sng2, qF, EF, eta, inv_theta, eta_
   p1 = y1/2 + z1/(2*y1)
   p2 = y2/2 + z2/(2*y2)
 
+  # Points and bounderies for integration
+  points_tmp = np.sqrt((max(eta,0.0) + np.arange(0, points_n+1))/inv_theta)
+  points_tmp = np.sqrt((eta + np.arange(-np.floor(eta), points_n+1))/inv_theta) 
+  high = max(np.abs(p1), np.abs(p2)) + np.sqrt( (max(eta,0.0) + np.log(1/tol_upper - 1))/inv_theta)
+
+  # Scale abs error based on pre-factors
+  abstol_scaled = abstol / np.abs(qF**3/(4*EF**2*y1*y2))
+
   if (p1 == p2):
     # Case where the pols are the same.
     if (sng1*sng2 < 0.0):
       raise ValueError('Incompatable sign!')
     f = lambda t: df1D_fermi_dirac(p1+t, eta/inv_theta, 1.0, 0.5, inv_theta, ms=ms, dx=dx)
-    tmp = principal_value_integration_f_over_x(f, eta=eta_pol, reltol=reltol, abstol=abstol) + 1j*np.pi * f(0.0) * sng1
+    # Find numerical hints for integrator
+    points_FD = np.concatenate( (points_tmp - p1, points_tmp + p1))
+    tmp = principal_value_integration_f_over_x(f, eta=eta_pol, reltol=reltol/6, abstol=abstol_scaled/6, points=points_FD, limit=limit, high=high, force_output=force_output) + 1j*np.pi * f(0.0) * sng1
   else:
     # Case where the two pols are distinct.
     pol_factor = 1/(p1-p2)
     f = lambda t: pol_factor * ( f1D_fermi_dirac(p1+t, eta/inv_theta, 1.0, 0.5, inv_theta, ms=ms)
                                - f1D_fermi_dirac(p2+t, eta/inv_theta, 1.0, 0.5, inv_theta, ms=ms) )
-    tmp = principal_value_integration_f_over_x(f, eta=eta_pol, reltol=reltol, abstol=abstol) \
+    # Find numerical hints for integrator
+    points_FD = np.concatenate( (points_tmp - p1, points_tmp + p1, points_tmp - p2, points_tmp + p2) )
+    tmp = principal_value_integration_f_over_x(f, eta=eta_pol, reltol=reltol/6, abstol=abstol_scaled/6, points=points_FD, limit=limit, high=high, force_output=force_output) \
              + 1j*np.pi * pol_factor * ( sng1*f1D_fermi_dirac(p1, eta/inv_theta, 1.0, 0.5, inv_theta, ms=ms) \
                                        - sng2*f1D_fermi_dirac(p2, eta/inv_theta, 1.0, 0.5, inv_theta, ms=ms) )
 
   tmp *= qF**3/(4*EF**2*y1*y2)
   return tmp
 
-def _I_2_inner(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output):
+def _I_2_inner(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output):
     tmp = np.zeros(shape=y1.shape, dtype=complex)
     for i, (y1_, z1_, y2_, z2_, csTheta_) in enumerate(zip(y1, z1, y2, z2, csTheta)):
         if (y1_ == 0.0): # First k-vector is zero
-          tmp[i] = _I_1_inner_single(y2_, z2_, sng2, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)/(z1_*EF)
+          tmp[i] = _I_1_inner_single(y2_, z2_, sng2, qF, EF, eta, inv_theta, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output)/(z1_*EF)
         elif (y2_ == 0.0): # Second k-vector is zero
-          tmp[i] = _I_1_inner_single(y1_, z1_, sng1, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)/(z2_*EF)
-        elif (csTheta_ == 1.0): # The vectors are parallel
-            tmp[i] = _I_2_inner_parallel(y1_, z1_, sng1,  y2_, z2_, sng2, qF, EF, eta, inv_theta, eta_pol, reltol, abstol, ms, dx)
-        elif (csTheta_ == -1.0):# The vectors are anti-parallel, correct the sign
-            tmp[i] = _I_2_inner_parallel(y1_, z1_, sng1, -y2_, z2_, sng2, qF, EF, eta, inv_theta, eta_pol, reltol, abstol, ms, dx)
+          tmp[i] = _I_1_inner_single(y1_, z1_, sng1, qF, EF, eta, inv_theta, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output)/(z2_*EF)
+        elif (csTheta_ == 1.0 and use_parallel): # The vectors are parallel
+            tmp[i] = _I_2_inner_parallel(y1_, z1_, sng1,  y2_, z2_, sng2, qF, EF, eta, inv_theta, eta_pol, reltol, abstol, limit, tol_upper, points_n, ms, dx, force_output)
+        elif (csTheta_ == -1.0 and use_parallel): # The vectors are anti-parallel, correct the sign
+            tmp[i] = _I_2_inner_parallel(y1_, z1_, sng1, -y2_, z2_, sng2, qF, EF, eta, inv_theta, eta_pol, reltol, abstol, limit, tol_upper, points_n, ms, dx, force_output)
         else: # The general case
-            tmp[i] = _I_2_inner_full(y1_, z1_, sng1, y2_, z2_, sng2, csTheta_, qF, EF, eta, inv_theta, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)
+            tmp[i] = _I_2_inner_full(y1_, z1_, sng1, y2_, z2_, sng2, csTheta_, qF, EF, eta, inv_theta, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output)
     return tmp
 
 @njit

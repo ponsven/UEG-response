@@ -1,7 +1,8 @@
 import numpy as np
 from scipy.integrate import quad
+import warnings
 
-def principal_value_integration_f_over_x(f, eta=1e-6, reltol=1e-6, abstol=1e-8, args=None, points=None, high=None):
+def principal_value_integration_f_over_x(f, eta=1e-6, reltol=1e-6, abstol=1e-8, args=None, points=None, limit=50, high=None, force_output=False):
   """
     Computes the principal value integral (latex notation)
       P \\int_{-\\infty}^{\\infty} f(z)/z dz
@@ -16,6 +17,7 @@ def principal_value_integration_f_over_x(f, eta=1e-6, reltol=1e-6, abstol=1e-8, 
       reltol -- Relative tolerance for integration.
       abstol -- Absolute tolerance for integration.
       points -- 'Importent' points for the integration.
+      limit  -- 'limit' passed to quad, defult 50.
       high   -- If 'points' are given, giv this upper bound for the computation.
     Output:
       res -- Numerical estimate for principle value of integral.
@@ -31,15 +33,17 @@ def principal_value_integration_f_over_x(f, eta=1e-6, reltol=1e-6, abstol=1e-8, 
   else:
     if (high is None):
       raise ValueError("If 'points' are given, manually set upper bound 'high'.")
-  
-  quad_output = quad(g, eta, high, epsrel=0.1*reltol, epsabs=0.1*abstol, points=points, full_output=1)
+
+  quad_output = quad(g, eta, high, epsrel=0.1*reltol, epsabs=0.1*abstol, points=points, limit=limit, full_output=1)
 
   if (len(quad_output) > 3):
     message = quad_output[3]
-    raise ValueError("Integrator 'quad' failed with error:\n %s"%(message))
-  else:
-    y = quad_output[0]
-    abserr = quad_output[1]
+    if not (force_output):
+      raise ValueError("Integrator 'quad' failed with error:\n %s"%(message))
+    else:
+      warnings.warn("Integrator 'quad' failed when computing principal value with error:\n %s"%(message), RuntimeWarning)
+  y = quad_output[0]
+  abserr = quad_output[1]
 
   # Singulerity integration.
   if (args is None):
@@ -59,6 +63,10 @@ def principal_value_integration_f_over_x(f, eta=1e-6, reltol=1e-6, abstol=1e-8, 
   # Error estimate
   if (res_abserr > max(abstol, reltol*np.abs(res))):
     res_relerr = res_abserr / np.abs(res)
-    raise ValueError(f'Relative error {res_relerr} or absolute error {res_abserr} exccceds relative tolerence {reltol} or absolut tolerance {abstol}.')
+    if not (force_output):
+      raise ValueError(f'Relative error {res_relerr} or absolute error {res_abserr} exccceds relative tolerence {reltol} or absolut tolerance {abstol}.')
+    else:
+      warnings.warn(f'Relative error {res_relerr} or absolute error {res_abserr} exccceds relative tolerence {reltol} or absolut tolerance {abstol}.')
+    
 
   return res

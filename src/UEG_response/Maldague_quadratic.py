@@ -190,7 +190,7 @@ def _Maldague_chi_2_0_CV(eta_bar, k1, omega1, k2, omega2, csTheta, beta, hbar, m
 
     return val, points_I
 
-def _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta, eta, beta, hbar, m, lower, reltol, abstol, tol_upper, points_n, ms, force_output=True):
+def _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta, eta, beta, hbar, m, lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=True):
     # Allocate data
     res = np.zeros(shape=(len(csTheta), ), dtype=complex)
     err = np.zeros(shape=(len(csTheta), ), dtype=complex)
@@ -230,7 +230,7 @@ def _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta, 
         points = _get_points_I(low, high, points_all)
         quad_output = quad(_real_chi_2_0_integrand_Maldague, low, high,
                                 args=tuple(X[idx, :]), 
-                                points=points, full_output=1, epsabs=abstol, epsrel=reltol)
+                                points=points, full_output=1, epsabs=abstol, epsrel=reltol, limit=limit)
 
         if (len(quad_output) > 3):
           message = quad_output[3]
@@ -246,7 +246,7 @@ def _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta, 
 
         quad_output = quad(_imag_chi_2_0_integrand_Maldague, low, high,
                                 args=tuple(X[idx, :]), 
-                                points=points, full_output=1, epsabs=abstol, epsrel=reltol)
+                                points=points, full_output=1, epsabs=abstol, epsrel=reltol, limit=limit)
 
         if (len(quad_output) > 3):
           message = quad_output[3]

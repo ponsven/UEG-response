@@ -5,7 +5,7 @@ from .utils import _norm, _cos_angle
 from .Maldague_quadratic import _ideal_quadratic_response_Maldague
 
 def ideal_linear_response(omega, k, m, hbar, n, beta, ms=2,
-                          reltol=1e-6, abstol=1e-8, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
+                          reltol=1e-6, abstol=1e-8, limit=50, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
   # Setup for array operations
   omega  = np.atleast_1d(np.array(omega))
   k      = np.atleast_1d(np.array(k))
@@ -44,17 +44,17 @@ def ideal_linear_response(omega, k, m, hbar, n, beta, ms=2,
   # First term
   y = np.abs(k)/qF
   z = hbar*(omega)/EF
-  linear_chi_0 -= _I_1_inner(y, z, 1,  qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)
+  linear_chi_0 -= _I_1_inner(y, z, 1,  qF, EF, eta, inv_theta, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output)
 
   # Second term
   y = np.abs(-k)/qF
   z = hbar*(-omega)/EF
-  linear_chi_0 -= _I_1_inner(y, z, -1, qF, EF, eta, inv_theta, eta_log, reltol, abstol, tol_upper, points_n, ms, force_output)
+  linear_chi_0 -= _I_1_inner(y, z, -1, qF, EF, eta, inv_theta, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, force_output)
 
   return linear_chi_0
 
 # Compute quadratic response susing the direct method.
-def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output):
+def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output):
   quadratic_chi_0 = np.zeros(shape=omega1.shape, dtype=complex)
   
   # First term:
@@ -63,7 +63,7 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
   y2 = _norm(k1_vec+k2_vec)/qF
   z2 = hbar*(omega1+omega2)/EF
   csTheta12 = _cos_angle(k2_vec, k1_vec+k2_vec)
-  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, 1, y2, z2, 1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output)
+  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, 1, y2, z2, 1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
 
   # Second term:
   y1 = _norm(-k2_vec)/qF
@@ -71,7 +71,7 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
   y2 = _norm(k1_vec)/qF
   z2 = hbar*(omega1)/EF
   csTheta12 = _cos_angle(-k2_vec, k1_vec)
-  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, -1, y2, z2, 1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output)
+  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, -1, y2, z2, 1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
   
   # Third term:
   y1 = _norm(-k1_vec-k2_vec)/qF
@@ -79,7 +79,7 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
   y2 = _norm(-k1_vec)/qF
   z2 = hbar*(-omega1)/EF
   csTheta12 = _cos_angle(-k1_vec-k2_vec, -k1_vec)
-  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, -1, y2, z2, -1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output)
+  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, -1, y2, z2, -1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
   
   # Fourth term:
   y1 = _norm(k1_vec)/qF
@@ -87,7 +87,7 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
   y2 = _norm(k2_vec+k1_vec)/qF
   z2 = hbar*(omega2+omega1)/EF
   csTheta12 = _cos_angle(k1_vec, k2_vec+k1_vec)
-  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, 1, y2, z2, 1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output)
+  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, 1, y2, z2, 1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
   
   # Fift term:
   y1 = _norm(-k1_vec)/qF
@@ -95,7 +95,7 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
   y2 = _norm(k2_vec)/qF
   z2 = hbar*(omega2)/EF
   csTheta12 = _cos_angle(-k1_vec, k2_vec)
-  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, -1, y2, z2, 1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output)
+  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, -1, y2, z2, 1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
   
   # Sixth term:
   y1 = _norm(-k2_vec-k1_vec)/qF
@@ -103,7 +103,7 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
   y2 = _norm(-k2_vec)/qF
   z2 = hbar*(-omega2)/EF
   csTheta12 = _cos_angle(-k2_vec-k1_vec, -k2_vec)
-  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, -1, y2, z2, -1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, tol_upper, points_n, ms, dx, force_output)
+  quadratic_chi_0 += 0.5*_I_2_inner(y1, z1, -1, y2, z2, -1, csTheta12, qF, EF, eta, inv_theta, eta_pol, eta_sqrt, eta_log, reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
 
   return quadratic_chi_0
 
@@ -137,8 +137,8 @@ def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1
 
 
 def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
-                             m, hbar, n, beta, method='direct', ms=2,
-                             reltol=1e-6, abstol=1e-8, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8, lower=1e-6,
+                             m, hbar, n, beta, method='direct', use_parallel=False, ms=2,
+                             reltol=1e-6, abstol=1e-8, limit=50, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8, lower=1e-6,
                              dx=1e-4, points_n=3, force_output=False):
   """
     Computes the ideal quadratic response coefficents. Units per energy**2 per volume.
@@ -153,10 +153,12 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
       n       -- Density, for the computation of eta and inv_theta if not given.
       beta    -- Inverse temperature in energy units, for the computation of eta and inv_theta if not given.
     Optional: Either eta and inv_theta or n and beta nust be given. If not n is given, qF must be given.
-      method    -- The method used to performe the evaluation. 
+      method       -- The method used to performe the evaluation. 
+      use_parallel -- Set to 'True' if parallel implementation should be used.
       ms        -- Spin multiplicity of particle.
       reltol    -- Relative tolerance for solution.
       abstol    -- Absolute tolerance for solution.
+      limit     -- 'limit' passed to 'quad'
       eta_pol   -- eta for principla value evaluation, see 'principal_value_integration_f_over_x'
       eta_sqrt  -- Size of region around sqrt-poles which are approximated analytically.
       eta_log   -- Size of region around log-poles which are approximated analytically.
@@ -223,11 +225,11 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
     quadratic_chi_0 = _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec,
                                                        hbar, qF, EF, eta, inv_theta,
                                                        eta_pol, eta_sqrt, eta_log,
-                                                       reltol, abstol, tol_upper, points_n, ms, dx, force_output)
+                                                       reltol, abstol, limit, tol_upper, points_n, ms, dx, use_parallel, force_output)
   elif (method == 'maldague'):
     quadratic_chi_0 = _ideal_quadratic_response_Maldague(k1_vec, omega1, k2_vec, omega2, csTheta,
                                                          eta, beta, hbar, m,
-                                                         lower, reltol, abstol, tol_upper, points_n, ms, force_output=force_output)
+                                                         lower, reltol, abstol, limit, tol_upper, points_n, ms, force_output=force_output)
   else:
     raise ValueError(f"The 'method' (%s) must be one of: 'direct' or 'maldague'."%(method))
 
