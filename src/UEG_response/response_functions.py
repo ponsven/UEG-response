@@ -1,6 +1,6 @@
 import numpy as np
 from .fermi_dirac import compute_chemical_potential
-from .I_functions import _I_1_inner, _I_2_inner
+from .I_functions import _I_1_inner, _I_2_inner, _I_2_CV
 from .utils import _norm, _cos_angle
 from .Maldague_quadratic import _ideal_quadratic_response_Maldague
 from .zeroth_harmonic import _chi0_k2_0_Maldague, _chi0_k1_0_k2_0_Maldague
@@ -109,7 +109,7 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
   return quadratic_chi_0
 
 
-def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1e-6, abstol=1e-8, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
+def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1e-6, abstol=1e-8, limit=50, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
   """
     Computes the ideal quadratic response function for equal first and second argument. Units per energy**2 per volume.
     Arguments:
@@ -123,6 +123,7 @@ def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1
       ms           -- Spin multiplicity of particle, defult 2.
       reltol       -- Relative tolerance for solution.
       abstol       -- Absolute tolerance for solution.
+      limit        -- 'limit' as passed to 'quad'.
       eta_log      -- eta_log for the linear response computation, see 'ideal_linear_response'.
       tol_upper    -- tol_upper for the linear response computation, see 'ideal_linear_response'.
       points_n     -- points_n for the linear response computation, see 'ideal_linear_response'.
@@ -130,8 +131,8 @@ def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1
     Output:
       quadratic_chi_0 -- ideal quadratic reponse function, shape (n, ) or ()
   """
-  chi_0        = ideal_linear_response( omega,    k, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
-  chi_0_double = ideal_linear_response(2*omega, 2*k, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
+  chi_0        = ideal_linear_response( omega,    k, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, limit=limit, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
+  chi_0_double = ideal_linear_response(2*omega, 2*k, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, limit=limit, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
 
   quadratic_chi_0 = 2*m/(hbar**2*k**2) * (chi_0_double - chi_0)
   return quadratic_chi_0
@@ -286,6 +287,99 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
       raise ValueError(f"The 'method' (%s) must be one of: 'direct' or 'maldague'."%(method))
 
   return quadratic_chi_0
+
+def ground_state_ideal_quadratic_response(omega1, k1, omega2, k2, csTheta, m, hbar, n, ms=2):
+  # Setup for array operations
+    omega1  = np.atleast_1d(np.array(omega1))
+    k1      = np.atleast_1d(np.array(k1))
+    omega2  = np.atleast_1d(np.array(omega2))
+    k2      = np.atleast_1d(np.array(k2))
+    csTheta = np.atleast_1d(np.array(csTheta))
+  
+    omega1, k1, omega2, k2, csTheta = np.broadcast_arrays(omega1, k1, omega2, k2, csTheta)
+  
+    # Test the input.
+    if (np.any(k1 < 0.0)):
+      raise ValueError(f'k1 must be posetive or zero')
+    if (np.any(k2 < 0.0)):
+      raise ValueError(f'k2 must be posetive or zero')
+  
+    if (np.iscomplexobj(omega1) or np.iscomplexobj(omega2)):
+      raise ValueError(f"Complex frequncies are not suported.")
+  
+    if (n <= 0.0):
+      raise ValueError(f"Provided density (%g) must be posetive."%(n))
+  
+    if (m <= 0.0):
+      raise ValueError(f"Provided mass (%g) must be posetive."%(m))
+  
+    if (hbar <= 0.0):
+      raise ValueError(f"Provided hbar (%g) must be posetive."%(hbar))
+  
+    # Compute relevant scales
+    qF = (3*np.pi**2*n)**(1/3)
+    EF = hbar**2 * qF**2 / (2*m)
+  
+    # Angle computation are performed using the vector description.
+    # k1 is assumed to align with z-axis
+    k1_vec = np.zeros(shape=(len(k1),3))
+    k1_vec[:, 2] = k1
+    # k2 is assumed to be in the zx-plane
+    k2_vec = np.zeros(shape=(len(k2),3))
+    k2_vec[:, 0] = k2 * np.sqrt(1.0 - csTheta**2)
+    k2_vec[:, 2] = k2 * csTheta
+
+    quadratic_chi_0 = np.zeros(shape=omega1.shape, dtype=complex)
+      
+    # First term:
+    y1 = _norm(k2_vec)/qF
+    z1 = hbar*(omega2)/EF
+    y2 = _norm(k1_vec+k2_vec)/qF
+    z2 = hbar*(omega1+omega2)/EF
+    csTheta12 = _cos_angle(k2_vec, k1_vec+k2_vec)
+    quadratic_chi_0 += 0.5*_I_2_CV(y1, z1, 1, y2, z2, 1, csTheta12, qF, EF, ms)
+    
+    # Second term:
+    y1 = _norm(-k2_vec)/qF
+    z1 = hbar*(-omega2)/EF
+    y2 = _norm(k1_vec)/qF
+    z2 = hbar*(omega1)/EF
+    csTheta12 = _cos_angle(-k2_vec, k1_vec)
+    quadratic_chi_0 += 0.5*_I_2_CV(y1, z1, -1, y2, z2, 1, csTheta12, qF, EF, ms)
+      
+    # Third term:
+    y1 = _norm(-k1_vec-k2_vec)/qF
+    z1 = hbar*(-omega1-omega2)/EF
+    y2 = _norm(-k1_vec)/qF
+    z2 = hbar*(-omega1)/EF
+    csTheta12 = _cos_angle(-k1_vec-k2_vec, -k1_vec)
+    quadratic_chi_0 += 0.5*_I_2_CV(y1, z1, -1, y2, z2, -1, csTheta12, qF, EF, ms)
+      
+    # Fourth term:
+    y1 = _norm(k1_vec)/qF
+    z1 = hbar*(omega1)/EF
+    y2 = _norm(k2_vec+k1_vec)/qF
+    z2 = hbar*(omega2+omega1)/EF
+    csTheta12 = _cos_angle(k1_vec, k2_vec+k1_vec)
+    quadratic_chi_0 += 0.5*_I_2_CV(y1, z1, 1, y2, z2, 1, csTheta12, qF, EF, ms)
+      
+    # Fift term:
+    y1 = _norm(-k1_vec)/qF
+    z1 = hbar*(-omega1)/EF
+    y2 = _norm(k2_vec)/qF
+    z2 = hbar*(omega2)/EF
+    csTheta12 = _cos_angle(-k1_vec, k2_vec)
+    quadratic_chi_0 += 0.5*_I_2_CV(y1, z1, -1, y2, z2, 1, csTheta12, qF, EF, ms)
+      
+    # Sixth term:
+    y1 = _norm(-k2_vec-k1_vec)/qF
+    z1 = hbar*(-omega2-omega1)/EF
+    y2 = _norm(-k2_vec)/qF
+    z2 = hbar*(-omega2)/EF
+    csTheta12 = _cos_angle(-k2_vec-k1_vec, -k2_vec)
+    quadratic_chi_0 += 0.5*_I_2_CV(y1, z1, -1, y2, z2, -1, csTheta12, qF, EF, ms)
+
+    return quadratic_chi_0
 
 def no_G_linear(omega, k):
   return 0.0

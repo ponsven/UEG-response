@@ -570,8 +570,8 @@ def _I_2_inner_parallel(y1, z1, sng1, y2, z2, sng2, qF, EF, eta, inv_theta, eta_
   p2 = y2/2 + z2/(2*y2)
 
   # Points and bounderies for integration
-  points_tmp = np.sqrt((max(eta,0.0) + np.arange(0, points_n+1))/inv_theta)
-  points_tmp = np.sqrt((eta + np.arange(-np.floor(eta), points_n+1))/inv_theta) 
+  eta_or_zero = max(0.0, eta)
+  points_tmp = np.sqrt((eta_or_zero + np.arange(-np.floor(eta_or_zero), -np.floor(eta_or_zero)+points_n+1))/inv_theta)
   high = max(np.abs(p1), np.abs(p2)) + np.sqrt( (max(eta,0.0) + np.log(1/tol_upper - 1))/inv_theta)
 
   # Scale abs error based on pre-factors
@@ -659,7 +659,9 @@ def _I_2_CV_real_single(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, ms):
                                           + B*np.log(np.abs((B-1)/(B+1))) 
                                           + (A*B + 1)/np.abs(A+B) * np.log(np.abs( (A*B + 1 + np.abs(A+B)) / (A*B + 1 - np.abs(A+B)) )) )
     
-    return I_Cenni_real 
+    return I_Cenni_real
+
+_I_2_CV_real = np.vectorize(_I_2_CV_real_single)
 
 @njit
 def _I_2_CV_imag_single(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, ms):
@@ -710,3 +712,8 @@ def _I_2_CV_imag_single(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, ms):
                                         + (A*B+1)/np.abs(A+B) * _phi_2_corrected_imag_wo_pre_single(1.0, A, sng1, B, sng2, -1.0))
     
     return I_Cenni_imag
+
+_I_2_CV_imag = np.vectorize(_I_2_CV_imag_single)
+
+def _I_2_CV(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, ms):
+   return _I_2_CV_real(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, ms) + 1j * _I_2_CV_imag(y1, z1, sng1, y2, z2, sng2, csTheta, qF, EF, ms)

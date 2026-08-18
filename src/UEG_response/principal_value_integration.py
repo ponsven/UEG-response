@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import quad
 import warnings
+from .utils import _get_points_I
 
 def principal_value_integration_f_over_x(f, eta=1e-6, reltol=1e-6, abstol=1e-8, args=None, points=None, limit=50, high=None, force_output=False):
   """
@@ -34,7 +35,7 @@ def principal_value_integration_f_over_x(f, eta=1e-6, reltol=1e-6, abstol=1e-8, 
     if (high is None):
       raise ValueError("If 'points' are given, manually set upper bound 'high'.")
 
-  quad_output = quad(g, eta, high, epsrel=0.1*reltol, epsabs=0.1*abstol, points=points, limit=limit, full_output=1)
+  quad_output = quad(g, eta, high, epsrel=0.1*reltol, epsabs=0.1*abstol, points=_get_points_I(eta,high,points), limit=limit, full_output=1)
 
   if (len(quad_output) > 3):
     message = quad_output[3]
