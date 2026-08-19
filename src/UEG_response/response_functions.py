@@ -388,7 +388,7 @@ def no_theta_quadratic(omega1, k1, omega2, k2, csTheta):
   return 0.0
 
 def quadratic_response(omega1, k1, omega2, k2, csTheta,
-                       m, hbar, e, eps0, n, beta,
+                       m, hbar, e, eps0, n, beta, method='direct',
                        G_linear=no_G_linear, theta_quadratic=no_theta_quadratic, ms=2,
                        reltol=1e-6, abstol=1e-8, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8,
                        dx=1e-4, points_n=3,
@@ -409,6 +409,7 @@ def quadratic_response(omega1, k1, omega2, k2, csTheta,
       n         -- Density, for the computation of f1D if not given.
       beta      -- Inverse temperature in energy units, for the computation of f1D if not given.
     Optional: Either f1D or n and beta nust be given. If not n is given, qF must be given.
+      method          -- The method used to performe the ideal evaluation. 
       G_linear        -- Local field correction, dimentionless. Callabale with (omega, k)
       theta_quadratic -- Quadratic local field corection, units energy * volume**2. Callabale with (omega1, k1, omega2, k2, costheta)
       ms        -- Spin multiplicity of particle, defult 2.
@@ -457,7 +458,7 @@ def quadratic_response(omega1, k1, omega2, k2, csTheta,
     quadratic_chi_0 = ideal_diagonal_quadratic_response(omega1, k1, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
   else:
     quadratic_chi_0 = ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
-                                              m, hbar, n, beta, ms=ms,
+                                              m, hbar, n, beta, ms=ms, method=method,
                                               reltol=reltol, abstol=abstol, eta_pol=eta_pol, eta_sqrt=eta_sqrt, eta_log=eta_log, tol_upper=tol_upper,
                                               dx=dx, points_n=points_n, force_output=force_output)
   chi_0_1 = ideal_linear_response(omega1, k1, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)

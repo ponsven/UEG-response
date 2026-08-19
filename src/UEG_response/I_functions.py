@@ -243,7 +243,7 @@ def _phi_2_corrected_imag_single(x, A, sng1, B, sng2, csTheta):
 _phi_2_corrected_imag = np.vectorize(_phi_2_corrected_imag_single)
 
 # Implement the phi-function
-def phi_corrected(x, A, sng1, B, sng2, csTheta):
+def phi_2_corrected(x, A, sng1, B, sng2, csTheta):
     return _phi_2_corrected_real(x, A, sng1, B, sng2, csTheta) + 1j * _phi_2_corrected_imag(x, A, sng1, B, sng2, csTheta)
 
 @jit_integrand_function
