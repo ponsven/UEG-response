@@ -1,7 +1,14 @@
 import numpy as np
 from scipy.integrate import quad
 from scipy.optimize import root_scalar
-from fdint import fdk
+from numba import njit
+
+@njit
+def fd_0(eta):
+    """
+    Calculate (normalised) FD integral for k = 0.
+    """
+    return np.log1p(np.exp(eta))
 
 def f1D_fermi_dirac(qz, mu, hbar, m, beta, ms=2):
   """
@@ -22,7 +29,7 @@ def f1D_fermi_dirac(qz, mu, hbar, m, beta, ms=2):
 
   # Offest in FD integral
   x = beta * ( mu - np.square(qz)/(2*m) )
-  return pre * fdk(k=0.0, phi=x)
+  return pre * fd_0(x)
 
 def df1D_fermi_dirac(qz, mu, hbar, m, beta, ms=2, dx=1e-4):
   """
