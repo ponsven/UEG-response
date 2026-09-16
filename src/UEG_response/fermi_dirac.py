@@ -63,7 +63,7 @@ def df1D_fermi_dirac(qz, mu, hbar, m, beta, ms=2, dx=1e-4):
   x_d[idx] = -dx
 
   # Result
-  res = pre * (fdk(k=0.0, phi=x_u) - fdk(k=0.0, phi=x_d))/(x_u - x_d)
+  res = pre * (fd_0(x_u) - fd_0(x_d))/(x_u - x_d)
 
   if (len(res) == 1):
     return res[0]
