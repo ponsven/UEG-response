@@ -18,12 +18,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install sphinx sphinx-rtd-theme # Add any other themes or Sphinx extensions here
+          python -m pip install --upgrade pip    # Upgrade pip
+          python -m pip install --upgrade build  # Build UEG-response
+          python -m build
+          python -m pip install -e .
+          pip install sphinx sphinx-rtd-theme # Install Sphinx and extensions
+          pip install furo
 
       - name: Build HTML documentation
         run: |
-          # Adjust path if conf.py is in 'docs/' or another folder
+          # Adjust path if conf.py is in 'docs/source/' or another folder
           sphinx-build -b html docs/source/ docs/build/html
 
       - name: Deploy to GitHub Pages
