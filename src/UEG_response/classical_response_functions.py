@@ -169,6 +169,27 @@ def _classical_ideal_quadratic_response(k1_vec, omega1, k2_vec, omega2, n, beta,
                               + np.dot(k1_vec,k_vec)*np.dot(k2_vec,k2_vec) * M_1_sum_2(k2_vec, omega2, k1_vec, omega1, n, vth, dc=dc, eta_pol=eta_pol, reltol=reltol, abstol=abstol) ) 
 
 def classical_ideal_quadratic_response(k1, omega1, k2, omega2, csTheta, n, beta, m, dc=1e-4, eta_pol=1e-4, reltol=1e-6, abstol=1e-8):
+    """
+    Computes the ideal quadratic response function in the classical limit. Units per energy**2 per volume.
+
+    :param k1:      First wave number for evaluation, shape (n, ) or ()
+    :param omega1:  First angular frequencies for evaluation, shape (n, ) or ()
+    :param k2:      Second wave number for evaluation, shape (n, ) or ()
+    :param omega2:  Second angular frequencies for evaluation, shape (n, ) or ()
+    :param csTheta: Angle between k-vectors
+    :param n:       Number density
+    :param beta:    Inverse temperature in energy units
+    :param m:       Mass of particle
+
+    :param dc:      Size of finite difference step in 'c' used for differentiation 
+                    in the generlised plasma dispersion function when n > 1
+    :param reltol:    Relative tolerance for solution.
+    :param eta_pol:   eta for principla value evaluation, see 'principal_value_integration_f_over_x'
+    :param reltol:    Relative tolerance for solution
+    :param abstol:    Absolute tolerance for solution
+
+    :return classical_quadratic_chi_0: Classical quadratic response function, shape (n, )
+    """
 
     omega1  = np.atleast_1d(np.array(omega1))
     k1      = np.atleast_1d(np.array(k1))
