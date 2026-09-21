@@ -23,6 +23,29 @@ from .zeroth_harmonic import _chi0_k2_0_Maldague, _chi0_k1_0_k2_0_Maldague
 
 def ideal_linear_response(omega, k, m, hbar, n, beta, ms=2,
                           reltol=1e-6, abstol=1e-8, limit=50, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
+  """
+    Computes the ideal linear response coefficents. Units per energy per volume.
+
+    :param omega:  Angular frequencies for evaluation, shape (n, ) or ()
+    :param k:      Wave number for evaluation, shape (n, ) or ()
+    :param m:      Mass of particle
+    :param hbar:   Reduced Plank's constant.
+    :param n:      Number density.
+    :param beta:   Inverse temperature in energy units.
+
+    :param ms:        Spin multiplicity of particle (defult: 2).
+    :param reltol:    Relative tolerance for solution.
+    :param abstol:    Absolute tolerance for solution.
+    :param limit:     'limit' passed to 'quad'
+    :param eta_log:   Size of region around log-poles which are approximated analytically.
+    :param tol_upper: Stop integration when the FD distribution is below this value.
+    :param points_n:  Points which helps numerical integration highliting points where FD is steap.
+                 Points are given by:  [(mu/EF + n*theta) for n in range(-points_n, points_n+1)]
+                 Points are also generated around the log- and sqrt-poles.
+    :param force_output: If true, results will be outputted even if convergence is not garanteed.
+
+    :return linear_chi_0: Ideal linear reponse function, shape (n, )
+    """
   # Setup for array operations
   omega  = np.atleast_1d(np.array(omega))
   k      = np.atleast_1d(np.array(k))
@@ -127,25 +150,25 @@ def _ideal_quadratic_response_direct(omega1, k1_vec, omega2, k2_vec, hbar, qF, E
 
 def ideal_diagonal_quadratic_response(omega, k, m, hbar, n, beta, ms=2, reltol=1e-6, abstol=1e-8, limit=50, eta_log=1e-4, tol_upper=1e-8, points_n=3, force_output=False):
   """
-    Computes the ideal quadratic response function for equal first and second argument. Units per energy**2 per volume.
-    Arguments:
-      omega -- Angular frequencies for evaluation, shape (n, ) or ()
-      k     -- Wave number for evaluation, shape (n, ) or ()
-      m     -- Mass of particle
-      hbar  -- Reduced Plank's constant.
-      n      -- Density, for the computation of f1D if not given.
-      beta   -- Inverse temperature in energy units, for the computation of f1D if not given.
-    Optional:
-      ms           -- Spin multiplicity of particle, defult 2.
-      reltol       -- Relative tolerance for solution.
-      abstol       -- Absolute tolerance for solution.
-      limit        -- 'limit' as passed to 'quad'.
-      eta_log      -- eta_log for the linear response computation, see 'ideal_linear_response'.
-      tol_upper    -- tol_upper for the linear response computation, see 'ideal_linear_response'.
-      points_n     -- points_n for the linear response computation, see 'ideal_linear_response'.
-      force_output -- If true, results will be outputted even if convergence is not garanteed.
-    Output:
-      quadratic_chi_0 -- ideal quadratic reponse function, shape (n, ) or ()
+  Computes the ideal quadratic response function for equal first and second argument. Units per energy**2 per volume.
+
+  :param omega:  Angular frequencies for evaluation, shape (n, ) or ()
+  :param k:      Wave number for evaluation, shape (n, ) or ()
+  :param m:      Mass of particle
+  :param hbar:   Reduced Plank's constant.
+  :param n:      Density, for the computation of f1D if not given.
+  :param beta:   Inverse temperature in energy units, for the computation of f1D if not given.
+
+  :param ms:           Spin multiplicity of particle, defult 2.
+  :param reltol:       Relative tolerance for solution.
+  :param abstol:       Absolute tolerance for solution.
+  :param limit:        'limit' as passed to 'quad'.
+  :param eta_log:      eta_log for the linear response computation, see 'ideal_linear_response'.
+  :param tol_upper:    tol_upper for the linear response computation, see 'ideal_linear_response'.
+  :param points_n:     points_n for the linear response computation, see 'ideal_linear_response'.
+  :param force_output: If true, results will be outputted even if convergence is not garanteed.
+
+  : return quadratic_chi_0: ideal quadratic reponse function, shape (n, ) or ()
   """
   chi_0        = ideal_linear_response( omega,    k, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, limit=limit, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
   chi_0_double = ideal_linear_response(2*omega, 2*k, m, hbar, n, beta, ms=ms, reltol=reltol, abstol=abstol, limit=limit, eta_log=eta_log, tol_upper=tol_upper, points_n=points_n, force_output=force_output)
@@ -159,41 +182,39 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
                              reltol=1e-6, abstol=1e-8, limit=50, eta_pol=1e-6, eta_sqrt=1e-4, eta_log=1e-4, tol_upper=1e-8, lower=1e-6,
                              dx=1e-4, points_n=3, force_output=False):
   """
-    Computes the ideal quadratic response coefficents. Units per energy**2 per volume.
-    Arguments:
-      omega1  -- First angular frequencies for evaluation, shape (n, ) or ()
-      k1      -- First wave number for evaluation, shape (n, ) or ()
-      omega2  -- Second angular frequencies for evaluation, shape (n, ) or ()
-      k2      -- Second wave number for evaluation, shape (n, ) or ()
-      csTheta -- Angle between k-vectors
-      m       -- Mass of particle
-      hbar    -- Reduced Plank's constant.
-      n       -- Density, for the computation of eta and inv_theta if not given.
-      beta    -- Inverse temperature in energy units, for the computation of eta and inv_theta if not given.
-    Optional: Either eta and inv_theta or n and beta nust be given. If not n is given, qF must be given.
-      method        -- The method used to performe the evaluation. 
-      use_parallel  -- Set to 'True' if parallel implementation should be used.
-      direction_k_0 -- Either 'static' or 'dynamic'. Determines the treatment when ki==0, omega1==0 and omega2==0.
-                       If 'static', ki -> 0 is taken for the static response (defult).
-                       If 'dynamic', omegai -> 0 is taken for the response where ki=0.
-      ms        -- Spin multiplicity of particle.
-      reltol    -- Relative tolerance for solution.
-      abstol    -- Absolute tolerance for solution.
-      limit     -- 'limit' passed to 'quad'
-      eta_pol   -- eta for principla value evaluation, see 'principal_value_integration_f_over_x'
-      eta_sqrt  -- Size of region around sqrt-poles which are approximated analytically.
-      eta_log   -- Size of region around log-poles which are approximated analytically.
-      tol_upper -- Stop integration when the FD distribution is below this value.
-      lower     -- Lower limit of integration when method='maldague'
-      dx        -- Finite difference parameter used for differentiation of Fermi-Dirac integrals.
-      points_n  -- Points which helps numerical integration highliting points where FD is steap.
-                   Points are given by:  [(mu/EF + n*theta) for n in range(-points_n, points_n+1)]
-                   Points are also generated around the log- and sqrt-poles.
-      force_output -- If true, results will be outputted even if convergence is not garanteed.
-    Output:
-      quadratic_chi_0 -- ideal quadratic reponse function, shape (n, ) or ()
-      eta             -- Chemical potential of uniform system in units of kB T.
-      inv_theta       -- Fermi energy in units of kB T.
+  Computes the ideal quadratic response coefficents. Units per energy**2 per volume.
+
+  :param omega1:  First angular frequencies for evaluation, shape (n, ) or ()
+  :param k1:      First wave number for evaluation, shape (n, ) or ()
+  :param omega2:  Second angular frequencies for evaluation, shape (n, ) or ()
+  :param k2:      Second wave number for evaluation, shape (n, ) or ()
+  :param csTheta: Angle between k-vectors
+  :param m:       Mass of particle
+  :param hbar:    Reduced Plank's constant.
+  :param n:       Number density.
+  :param beta:    Inverse temperature in energy units.
+
+  :param method:        The method used to performe the evaluation (defult: 'direct'). 
+  :param use_parallel:  Set to 'True' if implementation for paralle k-vectors should be used (defult: False).
+  :param direction_k_0: Either 'static' or 'dynamic'. Determines the treatment when ki==0, omega1==0 and omega2==0.
+                        If 'static', ki -> 0 is taken for the static response (defult).
+                        If 'dynamic', omegai -> 0 is taken for the response where ki=0.
+  :param ms:        Spin multiplicity of particle (defult: 2).
+  :param reltol:    Relative tolerance for solution.
+  :param abstol:    Absolute tolerance for solution.
+  :param limit:     'limit' passed to 'quad'
+  :param eta_pol:   eta for principla value evaluation, see 'principal_value_integration_f_over_x'
+  :param eta_sqrt:  Size of region around sqrt-poles which are approximated analytically.
+  :param eta_log:   Size of region around log-poles which are approximated analytically.
+  :param tol_upper: Stop integration when the FD distribution is below this value.
+  :param lower:     Lower limit of integration when method='maldague'
+  :param dx:        Finite difference parameter used for differentiation of Fermi-Dirac integrals.
+  :param points_n:  Points which helps numerical integration highliting points where FD is steap.
+               Points are given by:  [(mu/EF + n*theta) for n in range(-points_n, points_n+1)]
+               Points are also generated around the log- and sqrt-poles.
+  :param force_output: If true, results will be outputted even if convergence is not garanteed.
+
+  :return quadratic_chi_0: Ideal quadratic reponse function, shape (n, )
   """
   # Setup for array operations
   omega1  = np.atleast_1d(np.array(omega1))
@@ -305,7 +326,23 @@ def ideal_quadratic_response(omega1, k1, omega2, k2, csTheta,
   return quadratic_chi_0
 
 def ground_state_ideal_quadratic_response(omega1, k1, omega2, k2, csTheta, m, hbar, n, ms=2):
-  # Setup for array operations
+    """
+    Computes the ideal quadratic response coefficents in the ground state. Units per energy**2 per volume.
+
+    :param omega1:  First angular frequencies for evaluation, shape (n, ) or ()
+    :param k1:      First wave number for evaluation, shape (n, ) or ()
+    :param omega2:  Second angular frequencies for evaluation, shape (n, ) or ()
+    :param k2:      Second wave number for evaluation, shape (n, ) or ()
+    :param csTheta: Angle between k-vectors
+    :param m:       Mass of particle
+    :param hbar:    Reduced Plank's constant.
+    :param n:       Number density.
+
+    :param ms:      Spin multiplicity of particle (defult: 2).
+
+    :return quadratic_chi_0: Ideal quadratic reponse function, shape (n, )
+    """
+    # Setup for array operations
     omega1  = np.atleast_1d(np.array(omega1))
     k1      = np.atleast_1d(np.array(k1))
     omega2  = np.atleast_1d(np.array(omega2))
