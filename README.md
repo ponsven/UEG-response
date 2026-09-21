@@ -28,5 +28,9 @@ To use *UEG-response*, first install the package locally:
     python -m pip install -e .
 ```
 
+## Documentation
+
+The documentation with for the packages is found [here](https://ponsven.github.io/UEG-response/).
+
 ## License
 This project is licensed under the GPLv3 License - see the [LICENSE](LICENSE) file for details.

@@ -27,7 +27,6 @@ jobs:
 
       - name: Build HTML documentation
         run: |
-          # Adjust path if conf.py is in 'docs/source/' or another folder
           sphinx-build -b html docs/source/ docs/build/html
 
       - name: Deploy to GitHub Pages
